@@ -13,7 +13,8 @@ import javax.swing.table.DefaultTableModel;
 
 public class VentanaPedidos extends JFrame {
     
-    private JTextField txtId, txtCliente, txtMedicamento, txtCantidad, txtTotal;
+    private JTextField txtId, txtCliente, txtCantidad, txtTotal;
+    private JComboBox<String> cmbMedicamento;
     private JButton btnGuardar, btnActualizar, btnBorrar, btnLimpiar;
     private JTable tablaPedidos;
     private DefaultTableModel modeloTabla;
@@ -21,7 +22,7 @@ public class VentanaPedidos extends JFrame {
     private EntityManagerFactory emf;
 
     public VentanaPedidos() {
-        // Inicializar EntityManagerFactory
+        // 1. Inicializar EntityManagerFactory primero
         emf = Persistence.createEntityManagerFactory("com.mycompany_Proyecto_Persistencia001_jar_1.0-SNAPSHOTPU");
 
         // Configuración básica de la ventana
@@ -31,7 +32,7 @@ public class VentanaPedidos extends JFrame {
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(10, 10));
 
-        // --- PANEL DE FORMULARIO (CAMPOS DE TEXTO) ---
+        // --- PANEL DE FORMULARIO ---
         JPanel panelFormulario = new JPanel(new GridLayout(5, 2, 5, 5));
         panelFormulario.setBorder(BorderFactory.createTitledBorder("Datos del Pedido"));
 
@@ -44,8 +45,8 @@ public class VentanaPedidos extends JFrame {
         panelFormulario.add(txtCliente);
 
         panelFormulario.add(new JLabel(" Medicamento:"));
-        txtMedicamento = new JTextField();
-        panelFormulario.add(txtMedicamento);
+        cmbMedicamento = new JComboBox<>();
+        panelFormulario.add(cmbMedicamento);
 
         panelFormulario.add(new JLabel(" Cantidad:"));
         txtCantidad = new JTextField();
@@ -62,13 +63,13 @@ public class VentanaPedidos extends JFrame {
         tablaPedidos = new JTable(modeloTabla);
         add(new JScrollPane(tablaPedidos), BorderLayout.CENTER);
 
-        // Al hacer clic en una fila de la tabla, se cargan los datos en los textos
+        // Al hacer clic en una fila de la tabla
         tablaPedidos.getSelectionModel().addListSelectionListener(e -> {
             int fila = tablaPedidos.getSelectedRow();
             if (fila >= 0) {
                 txtId.setText(modeloTabla.getValueAt(fila, 0).toString());
                 txtCliente.setText(modeloTabla.getValueAt(fila, 1).toString());
-                txtMedicamento.setText(modeloTabla.getValueAt(fila, 2).toString());
+                cmbMedicamento.setSelectedItem(modeloTabla.getValueAt(fila, 2).toString());
                 txtCantidad.setText(modeloTabla.getValueAt(fila, 3).toString());
                 txtTotal.setText(modeloTabla.getValueAt(fila, 4).toString());
             }
@@ -89,13 +90,14 @@ public class VentanaPedidos extends JFrame {
 
         add(panelBotones, BorderLayout.SOUTH);
 
-        // --- EVENTOS DE LOS BOTONES (ACCIONES CRUD) ---
+        // --- EVENTOS DE LOS BOTONES ---
         btnGuardar.addActionListener(e -> guardarPedido());
         btnActualizar.addActionListener(e -> actualizarPedido());
         btnBorrar.addActionListener(e -> borrarPedido());
         btnConsultar.addActionListener(e -> consultarPedido());
 
-        // Cargar los datos existentes al abrir la ventana
+        // 2. LLAMAR AL COMBO Y A LA LISTA AL FINAL DEL CONSTRUCTOR
+        cargarMedicamentosCombo();
         listarPedidos();
     }
 
@@ -106,7 +108,7 @@ public class VentanaPedidos extends JFrame {
             em.getTransaction().begin();
             Pedidos_Fybecca p = new Pedidos_Fybecca(
                     txtCliente.getText(),
-                    txtMedicamento.getText(),
+                    cmbMedicamento.getSelectedItem().toString(),
                     Integer.parseInt(txtCantidad.getText()),
                     Double.parseDouble(txtTotal.getText())
             );
@@ -124,7 +126,7 @@ public class VentanaPedidos extends JFrame {
 
     // 2. LISTAR (READ)
     private void listarPedidos() {
-        modeloTabla.setRowCount(0); // Limpiar la tabla
+        modeloTabla.setRowCount(0);
         EntityManager em = emf.createEntityManager();
         try {
             List<Pedidos_Fybecca> lista = em.createQuery("SELECT p FROM Pedidos_Fybecca p", Pedidos_Fybecca.class).getResultList();
@@ -149,7 +151,7 @@ public class VentanaPedidos extends JFrame {
             Pedidos_Fybecca p = em.find(Pedidos_Fybecca.class, id);
             if (p != null) {
                 p.setCliente(txtCliente.getText());
-                p.setMedicamento(txtMedicamento.getText());
+                p.setMedicamento(cmbMedicamento.getSelectedItem().toString());
                 p.setCantidad(Integer.parseInt(txtCantidad.getText()));
                 p.setTotal(Double.parseDouble(txtTotal.getText()));
                 em.merge(p);
@@ -193,51 +195,65 @@ public class VentanaPedidos extends JFrame {
             em.close();
         }
     }
-// 5. CONSULTAR / BUSCAR (READ SPECIFIC)
-private void consultarPedido() {
-    EntityManager em = emf.createEntityManager();
-    try {
-        String idTexto = txtId.getText().trim();
-        String clienteTexto = txtCliente.getText().trim();
-        
-        modeloTabla.setRowCount(0); // Limpiar la tabla antes de mostrar resultados
-        
-        if (!idTexto.isEmpty()) {
-            // Consulta por ID exacto
-            Integer id = Integer.parseInt(idTexto);
-            Pedidos_Fybecca p = em.find(Pedidos_Fybecca.class, id);
-            if (p != null) {
-                modeloTabla.addRow(new Object[]{p.getId(), p.getCliente(), p.getMedicamento(), p.getCantidad(), p.getTotal()});
+
+    // 5. CONSULTAR / BUSCAR
+    private void consultarPedido() {
+        EntityManager em = emf.createEntityManager();
+        try {
+            String idTexto = txtId.getText().trim();
+            String clienteTexto = txtCliente.getText().trim();
+            modeloTabla.setRowCount(0);
+            
+            if (!idTexto.isEmpty()) {
+                Integer id = Integer.parseInt(idTexto);
+                Pedidos_Fybecca p = em.find(Pedidos_Fybecca.class, id);
+                if (p != null) {
+                    modeloTabla.addRow(new Object[]{p.getId(), p.getCliente(), p.getMedicamento(), p.getCantidad(), p.getTotal()});
+                } else {
+                    JOptionPane.showMessageDialog(this, "No se encontró ningún pedido con el ID: " + id);
+                    listarPedidos();
+                }
+            } else if (!clienteTexto.isEmpty()) {
+                List<Pedidos_Fybecca> lista = em.createQuery("SELECT p FROM Pedidos_Fybecca p WHERE p.cliente LIKE :cliente", Pedidos_Fybecca.class)
+                        .setParameter("cliente", "%" + clienteTexto + "%")
+                        .getResultList();
+                for (Pedidos_Fybecca p : lista) {
+                    modeloTabla.addRow(new Object[]{p.getId(), p.getCliente(), p.getMedicamento(), p.getCantidad(), p.getTotal()});
+                }
             } else {
-                JOptionPane.showMessageDialog(this, "No se encontró ningún pedido con el ID: " + id);
-                listarPedidos(); // Volver a mostrar todos si no encuentra
+                listarPedidos();
+                JOptionPane.showMessageDialog(this, "Mostrando todos los registros.");
             }
-        } else if (!clienteTexto.isEmpty()) {
-            // Consulta por nombre de cliente (coincidencias)
-            List<Pedidos_Fybecca> lista = em.createQuery("SELECT p FROM Pedidos_Fybecca p WHERE p.cliente LIKE :cliente", Pedidos_Fybecca.class)
-                    .setParameter("cliente", "%" + clienteTexto + "%")
-                    .getResultList();
-            for (Pedidos_Fybecca p : lista) {
-                modeloTabla.addRow(new Object[]{p.getId(), p.getCliente(), p.getMedicamento(), p.getCantidad(), p.getTotal()});
-            }
-        } else {
-            // Si no escribiste nada, muestra todos los pedidos
-            listarPedidos();
-            JOptionPane.showMessageDialog(this, "Mostrando todos los registros (campos de búsqueda vacíos).");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Error al consultar: " + ex.getMessage());
+        } finally {
+            em.close();
         }
-    } catch (Exception ex) {
-        JOptionPane.showMessageDialog(this, "Error al consultar: " + ex.getMessage());
-    } finally {
-        em.close();
     }
-}
+
     private void limpiarCampos() {
         txtId.setText("");
         txtCliente.setText("");
-        txtMedicamento.setText("");
+        if (cmbMedicamento.getItemCount() > 0) {
+            cmbMedicamento.setSelectedIndex(0);
+        }
         txtCantidad.setText("");
         txtTotal.setText("");
     }
+
+    private void cargarMedicamentosCombo() {
+        cmbMedicamento.removeAllItems();
+        EntityManager em = emf.createEntityManager();
+        try {
+            List<Medicamento> listaMedicamentos = em.createQuery("SELECT m FROM Medicamento m", Medicamento.class).getResultList();
+            for (Medicamento med : listaMedicamentos) {
+                cmbMedicamento.addItem(med.getNombre());
+            }
+        } catch (Exception e) {
+            System.out.println("Error al cargar medicamentos: " + e.getMessage());
+        } finally {
+            em.close();
+        }
+    }
 }
-    
 
